@@ -5,71 +5,32 @@ class Cards {
   String flowerVal = '';
   int cardVal = 0;
   final int maxVal = 21;
+  final int minVal = 16;
+  final int dealerVal = 18;
   int userVal = 0;
   var cardColor;
 
-  void takeCards(int num) {
+  void takeCards(int num) { //int cardLength, bool dealer, bool change1) {
     switch (num) {
       case 0:
         cardNum = 'A';
         flowerVal = '♠';
         cardColor = Colors.black;
-
-        if (userVal < 11) // 10, 9.. 
-        {
-          cardVal = 11;
-        } else if (userVal < 12) // 11, 10..
-        {
-          cardVal = 10;
-        } else {
-          cardVal = 1;
-
-        }
-        userVal += cardVal;
         break;
       case 1:
         cardNum = 'A';
         flowerVal = '♥';
         cardColor = Colors.red;
-
-        if (userVal < 11) // 10, 9..
-        {
-          cardVal = 11;
-        } else if (userVal < 12) // 11, 10..
-        {
-          cardVal = 10;
-        } else {
-          cardVal = 1;
-        }
-        userVal += cardVal;
         break;
       case 2:
         cardNum = 'A';
         flowerVal = '♣';
         cardColor = Colors.black;
-
-        if (userVal < 11) {
-          cardVal = 11;
-        } else if (userVal < 12) {
-          cardVal = 10;
-        } else {
-          cardVal = 1;
-        }
-        userVal += cardVal;
         break;
       case 3:
         cardNum = 'A';
         flowerVal = '♦';
         cardColor = Colors.red;
-
-        if (userVal < 11) {
-          cardVal = 11;
-        } else if (userVal < 12) {
-          cardVal = 10;
-        } else {
-          cardVal = 1;
-        }
-        userVal += cardVal;
         break;
       case 4:
         cardNum = 'K';
