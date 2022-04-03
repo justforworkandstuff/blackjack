@@ -1,7 +1,10 @@
-import 'package:blackjackk/model/cardback.dart';
 import 'package:blackjackk/model/cards.dart';
-import 'package:blackjackk/model/cardtemplate.dart';
-import 'package:blackjackk/model/condition.dart';
+import 'package:blackjackk/screens/widgets/cardtemplate.dart';
+import 'package:blackjackk/model/constantvalues.dart';
+import 'package:blackjackk/screens/widgets/carddeck.dart';
+import 'package:blackjackk/screens/widgets/healthbar.dart';
+import 'package:blackjackk/screens/widgets/playerchangeabutton.dart';
+import 'package:blackjackk/screens/widgets/scoredisplay.dart';
 import 'package:blackjackk/viewmodel/dealer.dart';
 import 'package:blackjackk/viewmodel/numcard.dart';
 import 'package:blackjackk/viewmodel/player.dart';
@@ -44,6 +47,7 @@ class _HomePageState extends State<HomePage> {
   bool hasBeenPressed4 = false;
   bool hasBeenPressed5 = false;
 
+  //restarts the current game with new session
   void restartGame() {
     setState(() {
       card.userVal = 0;
@@ -70,6 +74,7 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  //show player cards
   void numOfCards(int num) {
     switch (num) {
       case 1:
@@ -90,6 +95,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  //show dealer's cards
   void numOfCardsDealer(int num) {
     switch (num) {
       case 1:
@@ -120,6 +126,83 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  //make card A value change
+  void changeCardAValue(Player player, int input) {
+    hasBeenPressed = !hasBeenPressed;
+
+    switch (input) {
+      case 1:
+        player.changeA1 = !player.changeA1;
+        player.modifyA1Val();
+        break;
+      case 2:
+        player.changeA2 = !player.changeA2;
+        player.modifyA2Val();
+        break;
+      case 3:
+        player.changeA3 = !player.changeA3;
+        player.modifyA3Val();
+        break;
+      case 4:
+        player.changeA4 = !player.changeA4;
+        player.modifyA4Val();
+        break;
+      case 5:
+        player.changeA5 = !player.changeA5;
+        player.modifyA5Val();
+        break;
+    }
+  }
+
+  //when either player/dealer health goes 0
+  void endDecision(Player player, BuildContext context, Dealer dealer) {
+    if (player.playerHealth <= 0) {
+      Navigator.pushReplacementNamed(context, '/gameover',
+          arguments: {'decision': 'lose'});
+    } else if (dealer.dealerHealth <= 0) {
+      Navigator.pushReplacementNamed(context, '/gameover',
+          arguments: {'decision': 'win'});
+    }
+  }
+
+  //things to do when
+  void thingsToDo(String text) {
+    shouldDisableButton = true;
+    setState(() => endingText = text);
+    hasWon = true;
+  }
+
+  //update player cards - hit button
+  void updatePlayerCards(Player player, NumCard numCard, Dealer dealer) {
+    switch (player.playerCard.length) {
+      case 3:
+        numCard.doSomething3(card.flowerVal, card.cardNum, card.cardColor);
+        break;
+      case 4:
+        numCard.doSomething4(card.flowerVal, card.cardNum, card.cardColor);
+        break;
+      case 5:
+        numCard.doSomething5(card.flowerVal, card.cardNum, card.cardColor);
+        numOfCardsDealer(dealer.dealerCard.length);
+        break;
+    }
+  }
+
+  //update dealer cards - hold button
+  void updateDealerCards(Dealer dealer, NumCard numCard) {
+    switch (dealer.dealerCard.length) {
+      case 3:
+        numCard.doSomething8(card.flowerVal, card.cardNum, card.cardColor);
+        break;
+      case 4:
+        numCard.doSomething9(card.flowerVal, card.cardNum, card.cardColor);
+        break;
+      case 5:
+        numCard.doSomething10(card.flowerVal, card.cardNum, card.cardColor);
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
@@ -136,110 +219,16 @@ class _HomePageState extends State<HomePage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   //dealer's health bar
-                  Align(
-                    alignment: Alignment.topCenter,
-                    child: Stack(
-                      children: [
-                        Container(
-                          height: MediaQuery.of(context).size.height * 0.10,
-                          width: MediaQuery.of(context).size.width,
-                          color: Colors.red,
-                        ),
-                        Consumer<Dealer>(
-                          builder: (context, dealer, child) {
-                            return Container(
-                              height: MediaQuery.of(context).size.height * 0.10,
-                              width: MediaQuery.of(context).size.width *
-                                  dealer.dealerHealth /
-                                  100,
-                              color: Colors.green,
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
+                  const HealthBarD(),
                   const SizedBox(height: 10.0),
                   //dealer's cards and dealerNum
-                  Consumer2<NumCard, Dealer>(
-                    builder: (context, numCard, dealer, child) {
-                      return Stack(
-                        children: [
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 5.0),
-                            child: Row(
-                              children: [
-                                card6
-                                    ? Visibility(
-                                        visible: card6,
-                                        child: CardTemplate(
-                                          flower: numCard.flower6,
-                                          num: numCard.num6,
-                                          color: numCard.color6,
-                                        ),
-                                      )
-                                    : const CardBack(),
-                                card7
-                                    ? Visibility(
-                                        visible: card7,
-                                        child: CardTemplate(
-                                          flower: numCard.flower7,
-                                          num: numCard.num7,
-                                          color: numCard.color7,
-                                        ),
-                                      )
-                                    : const CardBack(),
-                                card8
-                                    ? Visibility(
-                                        visible: card8,
-                                        child: CardTemplate(
-                                          flower: numCard.flower8,
-                                          num: numCard.num8,
-                                          color: numCard.color8,
-                                        ),
-                                      )
-                                    : const CardBack(),
-                                card9
-                                    ? Visibility(
-                                        visible: card9,
-                                        child: CardTemplate(
-                                          flower: numCard.flower9,
-                                          num: numCard.num9,
-                                          color: numCard.color9,
-                                        ),
-                                      )
-                                    : const CardBack(),
-                                card10
-                                    ? Visibility(
-                                        visible: card10,
-                                        child: CardTemplate(
-                                          flower: numCard.flower10,
-                                          num: numCard.num10,
-                                          color: numCard.color10,
-                                        ),
-                                      )
-                                    : const CardBack(),
-                              ],
-                            ),
-                          ),
-                          //dealerNum text
-                          Visibility(
-                            visible: hasWon,
-                            child: Align(
-                                alignment: Alignment.topRight,
-                                child: Text(
-                                  dealer.dealerNum.toString(),
-                                  style: const TextStyle(
-                                    fontSize: 25.0,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                )),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+                  CardDeckD(
+                      card6: card6,
+                      card7: card7,
+                      card8: card8,
+                      card9: card9,
+                      card10: card10,
+                      hasWon: hasWon),
                   const SizedBox(height: 10.0),
                   //hit and restart button
                   Row(
@@ -297,10 +286,8 @@ class _HomePageState extends State<HomePage> {
                                                     constantsVal.highValueN);
                                                 dealer.updateDealerHealth(
                                                     constantsVal.highValue);
-                                                shouldDisableButton = true;
-                                                setState(() => endingText =
-                                                    'You failed to survive 5 cards');
-                                                hasWon = true;
+                                                thingsToDo(constantsVal
+                                                    .playerFiveBurst);
                                               }
                                               //checks if player won by blackjack and 5 cards
                                               else if (player
@@ -311,10 +298,8 @@ class _HomePageState extends State<HomePage> {
                                                     constantsVal.highestVal);
                                                 dealer.updateDealerHealth(
                                                     constantsVal.highestValN);
-                                                shouldDisableButton = true;
-                                                setState(() => endingText =
-                                                    'You won by BlackJack and 5 cards!');
-                                                hasWon = true;
+                                                thingsToDo(constantsVal
+                                                    .fiveBlackJackPlayer);
                                               }
                                               //checks if player won by 5 cards
                                               else if (player
@@ -326,10 +311,8 @@ class _HomePageState extends State<HomePage> {
                                                     constantsVal.highValue);
                                                 dealer.updateDealerHealth(
                                                     constantsVal.highValueN);
-                                                shouldDisableButton = true;
-                                                setState(() => endingText =
-                                                    'You won by 5 cards!');
-                                                hasWon = true;
+                                                thingsToDo(
+                                                    constantsVal.fivePlayer);
                                               }
                                               //checks if player burst
                                               else if (player.playerNum >
@@ -342,30 +325,9 @@ class _HomePageState extends State<HomePage> {
                                                 shouldDisableButton = true;
                                               }
 
-                                              // updates card depending on the card length
-                                              switch (
-                                                  player.playerCard.length) {
-                                                case 3:
-                                                  numCard.doSomething3(
-                                                      card.flowerVal,
-                                                      card.cardNum,
-                                                      card.cardColor);
-                                                  break;
-                                                case 4:
-                                                  numCard.doSomething4(
-                                                      card.flowerVal,
-                                                      card.cardNum,
-                                                      card.cardColor);
-                                                  break;
-                                                case 5:
-                                                  numCard.doSomething5(
-                                                      card.flowerVal,
-                                                      card.cardNum,
-                                                      card.cardColor);
-                                                  numOfCardsDealer(
-                                                      dealer.dealerCard.length);
-                                                  break;
-                                              }
+                                              // updates player card depending on the card length
+                                              updatePlayerCards(
+                                                  player, numCard, dealer);
                                             }
 
                                             //show the num of cards as per the current card length
@@ -373,20 +335,8 @@ class _HomePageState extends State<HomePage> {
                                                 player.playerCard.length);
 
                                             //checks if player or dealer has no more health left
-                                            if (player.playerHealth <= 0) {
-                                              Navigator.pushReplacementNamed(
-                                                  context, '/gameover',
-                                                  arguments: {
-                                                    'decision': 'lose'
-                                                  });
-                                            } else if (dealer.dealerHealth <=
-                                                0) {
-                                              Navigator.pushReplacementNamed(
-                                                  context, '/gameover',
-                                                  arguments: {
-                                                    'decision': 'win'
-                                                  });
-                                            }
+                                            endDecision(
+                                                player, context, dealer);
                                           } else {
                                             shouldDisableButton = true;
                                           }
@@ -577,10 +527,8 @@ class _HomePageState extends State<HomePage> {
                                                 player.playerCard[1] == 'A' &&
                                                 dealer.dealerCard[0] == 'A' &&
                                                 dealer.dealerCard[1] == 'A') {
-                                              shouldDisableButton = true;
-                                              setState(() => endingText =
-                                                  'A draw by double A!');
-                                              hasWon = true;
+                                              thingsToDo(
+                                                  constantsVal.doubleADraw);
                                               numOfCardsDealer(
                                                   dealer.dealerCard.length);
                                             }
@@ -592,10 +540,8 @@ class _HomePageState extends State<HomePage> {
                                                   constantsVal.highValue);
                                               dealer.updateDealerHealth(
                                                   constantsVal.highValueN);
-                                              shouldDisableButton = true;
-                                              setState(() => endingText =
-                                                  'You won by double A!');
-                                              hasWon = true;
+                                              thingsToDo(
+                                                  constantsVal.doubleAPlayer);
                                               numOfCardsDealer(
                                                   dealer.dealerCard.length);
                                             }
@@ -607,10 +553,8 @@ class _HomePageState extends State<HomePage> {
                                                   constantsVal.highValueN);
                                               dealer.updateDealerHealth(
                                                   constantsVal.highValue);
-                                              shouldDisableButton = true;
-                                              setState(() => endingText =
-                                                  'Dealer won by double A!');
-                                              hasWon = true;
+                                              thingsToDo(
+                                                  constantsVal.doubleADealer);
                                               numOfCardsDealer(
                                                   dealer.dealerCard.length);
                                             }
@@ -654,10 +598,8 @@ class _HomePageState extends State<HomePage> {
                                                         'A') {
                                               player.updatePlayerNum(
                                                   constantsVal.smolValue);
-                                              shouldDisableButton = true;
-                                              setState(() => endingText =
-                                                  'A draw by BlackJack!');
-                                              hasWon = true;
+                                              thingsToDo(
+                                                  constantsVal.blackJackDraw);
                                               numOfCardsDealer(
                                                   dealer.dealerCard.length);
                                             }
@@ -666,10 +608,8 @@ class _HomePageState extends State<HomePage> {
                                                     player.playerCard[1] &&
                                                 dealer.dealerCard[0] ==
                                                     dealer.dealerCard[1]) {
-                                              shouldDisableButton = true;
-                                              setState(() => endingText =
-                                                  'A draw by Double');
-                                              hasWon = true;
+                                              thingsToDo(
+                                                  constantsVal.doubleDraw);
                                               numOfCardsDealer(
                                                   dealer.dealerCard.length);
                                             }
@@ -689,10 +629,8 @@ class _HomePageState extends State<HomePage> {
                                                   constantsVal.medValue);
                                               dealer.updateDealerHealth(
                                                   constantsVal.medValueN);
-                                              shouldDisableButton = true;
-                                              setState(() => endingText =
-                                                  'You won by BlackJack!');
-                                              hasWon = true;
+                                              thingsToDo(
+                                                  constantsVal.blackJackPlayer);
                                               numOfCardsDealer(
                                                   dealer.dealerCard.length);
                                             }
@@ -704,10 +642,8 @@ class _HomePageState extends State<HomePage> {
                                                   constantsVal.medValueN);
                                               dealer.updateDealerHealth(
                                                   constantsVal.medValue);
-                                              shouldDisableButton = true;
-                                              setState(() => endingText =
-                                                  'Dealer BlackJack');
-                                              hasWon = true;
+                                              thingsToDo(
+                                                  constantsVal.blackJackDealer);
                                               numOfCardsDealer(
                                                   dealer.dealerCard.length);
                                             } //checks if player double
@@ -719,10 +655,8 @@ class _HomePageState extends State<HomePage> {
                                                   constantsVal.medValue);
                                               dealer.updateDealerHealth(
                                                   constantsVal.medValueN);
-                                              shouldDisableButton = true;
-                                              setState(() => endingText =
-                                                  'You won by double!');
-                                              hasWon = true;
+                                              thingsToDo(
+                                                  constantsVal.doublePlayer);
                                               numOfCardsDealer(
                                                   dealer.dealerCard.length);
                                             }
@@ -735,10 +669,8 @@ class _HomePageState extends State<HomePage> {
                                                   constantsVal.medValueN);
                                               dealer.updateDealerHealth(
                                                   constantsVal.medValue);
-                                              shouldDisableButton = true;
-                                              setState(() =>
-                                                  endingText = 'Dealer Double');
-                                              hasWon = true;
+                                              thingsToDo(
+                                                  constantsVal.doubleDealer);
                                               numOfCardsDealer(
                                                   dealer.dealerCard.length);
                                             }
@@ -750,15 +682,7 @@ class _HomePageState extends State<HomePage> {
                                     numOfCards(player.playerCard.length);
 
                                     //checks if player or dealer has no more health left
-                                    if (player.playerHealth <= 0) {
-                                      Navigator.pushReplacementNamed(
-                                          context, '/gameover',
-                                          arguments: {'decision': 'lose'});
-                                    } else if (dealer.dealerHealth <= 0) {
-                                      Navigator.pushReplacementNamed(
-                                          context, '/gameover',
-                                          arguments: {'decision': 'win'});
-                                    }
+                                    endDecision(player, context, dealer);
                                   }
                                   firstButtonClick = true;
                                 },
@@ -822,26 +746,8 @@ class _HomePageState extends State<HomePage> {
                                               usedNum.add(rngNum);
                                             }
 
-                                            switch (dealer.dealerCard.length) {
-                                              case 3:
-                                                numCard.doSomething8(
-                                                    card.flowerVal,
-                                                    card.cardNum,
-                                                    card.cardColor);
-                                                break;
-                                              case 4:
-                                                numCard.doSomething9(
-                                                    card.flowerVal,
-                                                    card.cardNum,
-                                                    card.cardColor);
-                                                break;
-                                              case 5:
-                                                numCard.doSomething10(
-                                                    card.flowerVal,
-                                                    card.cardNum,
-                                                    card.cardColor);
-                                                break;
-                                            }
+                                            //updates dealer cards as per the card length
+                                            updateDealerCards(dealer, numCard);
                                           }
                                         }
                                         //higher value stuff
@@ -890,27 +796,9 @@ class _HomePageState extends State<HomePage> {
                                                   usedNum.add(rngNum);
                                                 }
 
-                                                switch (
-                                                    dealer.dealerCard.length) {
-                                                  case 3:
-                                                    numCard.doSomething8(
-                                                        card.flowerVal,
-                                                        card.cardNum,
-                                                        card.cardColor);
-                                                    break;
-                                                  case 4:
-                                                    numCard.doSomething9(
-                                                        card.flowerVal,
-                                                        card.cardNum,
-                                                        card.cardColor);
-                                                    break;
-                                                  case 5:
-                                                    numCard.doSomething10(
-                                                        card.flowerVal,
-                                                        card.cardNum,
-                                                        card.cardColor);
-                                                    break;
-                                                }
+                                                //updates dealer cards as per the card length
+                                                updateDealerCards(
+                                                    dealer, numCard);
                                               }
                                               break;
                                             case 1:
@@ -925,10 +813,7 @@ class _HomePageState extends State<HomePage> {
                                               constantsVal.medValueN);
                                           dealer.updateDealerHealth(
                                               constantsVal.medValue);
-                                          setState(() => endingText =
-                                              'You lost as your card number is less than 16!');
-                                          hasWon = true;
-                                          //show the num of cards as per the current card length
+                                          thingsToDo(constantsVal.lessThanHold);
                                           numOfCardsDealer(
                                               dealer.dealerCard.length);
                                         }
@@ -940,10 +825,8 @@ class _HomePageState extends State<HomePage> {
                                               constantsVal.highValue);
                                           dealer.updateDealerHealth(
                                               constantsVal.highValueN);
-                                          shouldDisableButton = true;
-                                          setState(() => endingText =
-                                              'Dealer 5 cards burst');
-                                          hasWon = true;
+                                          thingsToDo(
+                                              constantsVal.dealerFiveBurst);
                                           numOfCardsDealer(
                                               dealer.dealerCard.length);
                                         }
@@ -951,11 +834,7 @@ class _HomePageState extends State<HomePage> {
                                         else if (player.playerNum >
                                                 card.maxVal &&
                                             dealer.dealerNum > card.maxVal) {
-                                          shouldDisableButton = true;
-                                          setState(() => endingText =
-                                              'A draw! Both burst!');
-                                          hasWon = true;
-                                          //show the num of cards as per the current card length
+                                          thingsToDo(constantsVal.burstDraw);
                                           numOfCardsDealer(
                                               dealer.dealerCard.length);
                                         }
@@ -967,11 +846,8 @@ class _HomePageState extends State<HomePage> {
                                               constantsVal.highestValN);
                                           dealer.updateDealerHealth(
                                               constantsVal.highestVal);
-                                          shouldDisableButton = true;
-                                          setState(() => endingText =
-                                              'Dealer won by BlackJack and 5 cards!');
-                                          hasWon = true;
-                                          //show the num of cards as per the current card length
+                                          thingsToDo(
+                                              constantsVal.fiveBlackJackDealer);
                                           numOfCardsDealer(
                                               dealer.dealerCard.length);
                                         }
@@ -984,22 +860,14 @@ class _HomePageState extends State<HomePage> {
                                               constantsVal.highValueN);
                                           dealer.updateDealerHealth(
                                               constantsVal.highValueN);
-                                          shouldDisableButton = true;
-                                          setState(() => endingText =
-                                              'Dealer won by 5 cards!');
-                                          hasWon = true;
-                                          //show the num of cards as per the current card length
+                                          thingsToDo(constantsVal.fiveDealer);
                                           numOfCardsDealer(
                                               dealer.dealerCard.length);
                                         }
                                         //checks if both are same number for draw
                                         else if (player.playerNum ==
                                             dealer.dealerNum) {
-                                          shouldDisableButton = true;
-                                          setState(
-                                              () => endingText = 'A draw!');
-                                          hasWon = true;
-                                          //show the num of cards as per the current card length
+                                          thingsToDo(constantsVal.bothDraw);
                                           numOfCardsDealer(
                                               dealer.dealerCard.length);
                                         }
@@ -1009,10 +877,8 @@ class _HomePageState extends State<HomePage> {
                                               constantsVal.medValue);
                                           dealer.updateDealerHealth(
                                               constantsVal.medValueN);
-                                          shouldDisableButton = true;
-                                          endingText = 'You won by BlackJack!';
-                                          hasWon = true;
-                                          //show the num of cards as per the current card length
+                                          thingsToDo(
+                                              constantsVal.blackJackPlayer);
                                           numOfCardsDealer(
                                               dealer.dealerCard.length);
                                         }
@@ -1022,11 +888,8 @@ class _HomePageState extends State<HomePage> {
                                               constantsVal.medValueN);
                                           dealer.updateDealerHealth(
                                               constantsVal.medValue);
-                                          shouldDisableButton = true;
-                                          setState(() =>
-                                              endingText = 'Dealer BlackJack');
-                                          hasWon = true;
-                                          //show the num of cards as per the current card length
+                                          thingsToDo(
+                                              constantsVal.blackJackDealer);
                                           numOfCardsDealer(
                                               dealer.dealerCard.length);
                                         }
@@ -1034,71 +897,47 @@ class _HomePageState extends State<HomePage> {
                                         else if (player.playerNum >
                                                 dealer.dealerNum &&
                                             player.playerNum < card.maxVal) {
-                                          shouldDisableButton = true;
                                           player.updateHealth(
                                               constantsVal.smolValue);
                                           dealer.updateDealerHealth(
                                               constantsVal.smolValueN);
-                                          setState(() => endingText =
-                                              'You won the dealer by having a higher score!');
-                                          hasWon = true;
-                                          //show the num of cards as per the current card length
+                                          thingsToDo(constantsVal.playerHigher);
                                           numOfCardsDealer(
                                               dealer.dealerCard.length);
                                         } //dealer having higher score after everything
                                         else if (player.playerNum <
                                                 dealer.dealerNum &&
                                             dealer.dealerNum < card.maxVal) {
-                                          shouldDisableButton = true;
                                           player.updateHealth(
                                               constantsVal.smolValueN);
                                           dealer.updateDealerHealth(
                                               constantsVal.smolValue);
-                                          setState(
-                                              () => endingText = 'You lost');
-                                          hasWon = true;
-                                          //show the num of cards as per the current card length
+                                          thingsToDo(constantsVal.dealerHigher);
                                           numOfCardsDealer(
                                               dealer.dealerCard.length);
                                         } //dealer burst
                                         else if (dealer.dealerNum >
                                             card.maxVal) {
-                                          shouldDisableButton = true;
                                           player.updateHealth(
                                               constantsVal.smolValue);
                                           dealer.updateDealerHealth(
                                               constantsVal.smolValueN);
-                                          setState(() =>
-                                              endingText = 'Dealer burst.');
-                                          hasWon = true;
-                                          //show the num of cards as per the current card length
+                                          thingsToDo(constantsVal.dealerBurst);
                                           numOfCardsDealer(
                                               dealer.dealerCard.length);
                                         } //player burst
                                         else if (player.playerNum >
                                             card.maxVal) {
-                                          shouldDisableButton = true;
                                           player.updateHealth(
                                               constantsVal.smolValueN);
                                           dealer.updateDealerHealth(
                                               constantsVal.smolValue);
-                                          setState(
-                                              () => endingText = 'You burst');
-                                          hasWon = true;
-                                          //show the num of cards as per the current card length
+                                          thingsToDo(constantsVal.playerBurst);
                                           numOfCardsDealer(
                                               dealer.dealerCard.length);
                                         }
                                         //checks if player or dealer has no more health left
-                                        if (player.playerHealth <= 0) {
-                                          Navigator.pushReplacementNamed(
-                                              context, '/gameover',
-                                              arguments: {'decision': 'lose'});
-                                        } else if (dealer.dealerHealth <= 0) {
-                                          Navigator.pushReplacementNamed(
-                                              context, '/gameover',
-                                              arguments: {'decision': 'win'});
-                                        }
+                                        endDecision(player, context, dealer);
                                       }
                                 : null,
                             child: const Text('Hold'));
@@ -1133,36 +972,21 @@ class _HomePageState extends State<HomePage> {
                                             visible:
                                                 player.playerCard[0] == 'A',
                                             child: IconButton(
-                                              color: hasBeenPressed ? Colors.black : Colors.green,
+                                                color: hasBeenPressed
+                                                    ? Colors.black
+                                                    : Colors.green,
                                                 icon: const Icon(Icons.cached),
                                                 onPressed: hasWon
                                                     ? null
                                                     : () {
-                                                        hasBeenPressed =
-                                                            !hasBeenPressed;
-                                                        player.changeA1 =
-                                                            !player.changeA1;
-                                                        player.modifyA1Val();
+                                                        changeCardAValue(
+                                                            player, 1);
                                                       }),
                                           ),
                                         ],
                                       ),
                                     )
-                                  : Column(
-                                      children: const [
-                                        CardBack(),
-                                        Visibility(
-                                          maintainState: true,
-                                          maintainAnimation: true,
-                                          maintainSize: true,
-                                          visible: false,
-                                          child: IconButton(
-                                            icon: Icon(Icons.cached),
-                                            onPressed: null,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                  : const PlayerChangeAButton(),
                               card2
                                   ? Visibility(
                                       visible: card2,
@@ -1180,36 +1004,21 @@ class _HomePageState extends State<HomePage> {
                                             visible:
                                                 player.playerCard[1] == 'A',
                                             child: IconButton(
-                                              color: hasBeenPressed2 ? Colors.black : Colors.green,
+                                                color: hasBeenPressed2
+                                                    ? Colors.black
+                                                    : Colors.green,
                                                 icon: const Icon(Icons.cached),
                                                 onPressed: hasWon
                                                     ? null
                                                     : () {
-                                                        hasBeenPressed2 =
-                                                            !hasBeenPressed2;
-                                                        player.changeA2 =
-                                                            !player.changeA2;
-                                                        player.modifyA2Val();
+                                                        changeCardAValue(
+                                                            player, 2);
                                                       }),
                                           ),
                                         ],
                                       ),
                                     )
-                                  : Column(
-                                      children: const [
-                                        CardBack(),
-                                        Visibility(
-                                          maintainState: true,
-                                          maintainAnimation: true,
-                                          maintainSize: true,
-                                          visible: false,
-                                          child: IconButton(
-                                            icon: Icon(Icons.cached),
-                                            onPressed: null,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                  : const PlayerChangeAButton(),
                               card3
                                   ? Visibility(
                                       visible: card3,
@@ -1227,36 +1036,21 @@ class _HomePageState extends State<HomePage> {
                                             visible:
                                                 player.playerCard[2] == 'A',
                                             child: IconButton(
-                                                color: hasBeenPressed2 ? Colors.black : Colors.green,
+                                                color: hasBeenPressed3
+                                                    ? Colors.black
+                                                    : Colors.green,
                                                 icon: const Icon(Icons.cached),
                                                 onPressed: hasWon
                                                     ? null
                                                     : () {
-                                                        hasBeenPressed3 =
-                                                            !hasBeenPressed3;
-                                                        player.changeA3 =
-                                                            !player.changeA3;
-                                                        player.modifyA3Val();
+                                                        changeCardAValue(
+                                                            player, 3);
                                                       }),
                                           ),
                                         ],
                                       ),
                                     )
-                                  : Column(
-                                      children: const [
-                                        CardBack(),
-                                        Visibility(
-                                          maintainState: true,
-                                          maintainAnimation: true,
-                                          maintainSize: true,
-                                          visible: false,
-                                          child: IconButton(
-                                            icon: Icon(Icons.cached),
-                                            onPressed: null,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                  : const PlayerChangeAButton(),
                               card4
                                   ? Visibility(
                                       visible: card4,
@@ -1274,36 +1068,21 @@ class _HomePageState extends State<HomePage> {
                                             visible:
                                                 player.playerCard[3] == 'A',
                                             child: IconButton(
-                                                color: hasBeenPressed2 ? Colors.black : Colors.green,
+                                                color: hasBeenPressed4
+                                                    ? Colors.black
+                                                    : Colors.green,
                                                 icon: const Icon(Icons.cached),
                                                 onPressed: hasWon
                                                     ? null
                                                     : () {
-                                                        hasBeenPressed4 =
-                                                            !hasBeenPressed4;
-                                                        player.changeA4 =
-                                                            !player.changeA4;
-                                                        player.modifyA4Val();
+                                                        changeCardAValue(
+                                                            player, 4);
                                                       }),
                                           ),
                                         ],
                                       ),
                                     )
-                                  : Column(
-                                      children: const [
-                                        CardBack(),
-                                        Visibility(
-                                          maintainState: true,
-                                          maintainAnimation: true,
-                                          maintainSize: true,
-                                          visible: false,
-                                          child: IconButton(
-                                            icon: Icon(Icons.cached),
-                                            onPressed: null,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                  : const PlayerChangeAButton(),
                               card5
                                   ? Visibility(
                                       visible: card5,
@@ -1321,73 +1100,31 @@ class _HomePageState extends State<HomePage> {
                                             visible:
                                                 player.playerCard[4] == 'A',
                                             child: IconButton(
-                                                color: hasBeenPressed2 ? Colors.black : Colors.green,
+                                                color: hasBeenPressed5
+                                                    ? Colors.black
+                                                    : Colors.green,
                                                 icon: const Icon(Icons.cached),
                                                 onPressed: hasWon
                                                     ? null
                                                     : () {
-                                                        hasBeenPressed5 =
-                                                            !hasBeenPressed5;
-                                                        player.changeA5 =
-                                                            !player.changeA5;
-                                                        player.modifyA5Val();
+                                                        changeCardAValue(
+                                                            player, 5);
                                                       }),
                                           ),
                                         ],
                                       ),
                                     )
-                                  : Column(
-                                      children: const [
-                                        CardBack(),
-                                        Visibility(
-                                          maintainState: true,
-                                          maintainAnimation: true,
-                                          maintainSize: true,
-                                          visible: false,
-                                          child: IconButton(
-                                            icon: Icon(Icons.cached),
-                                            onPressed: null,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                  : const PlayerChangeAButton(),
                             ],
                           ),
                         ),
                         //playerNum text
-                        Align(
-                            alignment: Alignment.topRight,
-                            child: Text(
-                              player.playerNum.toString(),
-                              style: const TextStyle(
-                                fontSize: 25.0,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )),
+                        const ScoreDisplay(),
                       ],
                     );
                   }),
                   //player's health bar
-                  Stack(
-                    children: [
-                      Container(
-                        height: MediaQuery.of(context).size.height * 0.10,
-                        width: MediaQuery.of(context).size.width,
-                        color: Colors.red,
-                      ),
-                      Consumer<Player>(
-                        builder: (context, player, child) {
-                          return Container(
-                            height: MediaQuery.of(context).size.height * 0.10,
-                            width: MediaQuery.of(context).size.width *
-                                player.playerHealth /
-                                100,
-                            color: Colors.green,
-                          );
-                        },
-                      ),
-                    ],
-                  ),
+                  const HealthBar(),
                 ],
               ),
             ),
