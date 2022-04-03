@@ -1,3 +1,4 @@
+import 'package:blackjackk/screens/gameover.dart';
 import 'package:blackjackk/screens/homepage.dart';
 import 'package:blackjackk/screens/startscreen.dart';
 import 'package:flutter/material.dart';
@@ -14,7 +15,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       routes: {
+        '/start': (context) => const StartScreen(),
         '/home': (context) => const HomePage(),
+        '/gameover': (context) => const GameOver(),
       },
       title: 'Flutter Demo',
       debugShowCheckedModeBanner: false,
