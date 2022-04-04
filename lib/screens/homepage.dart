@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:blackjackk/model/cards.dart';
 import 'package:blackjackk/screens/widgets/cardtemplate.dart';
 import 'package:blackjackk/model/constantvalues.dart';
 import 'package:blackjackk/screens/widgets/carddeck.dart';
 import 'package:blackjackk/screens/widgets/healthbar.dart';
 import 'package:blackjackk/screens/widgets/playerchangeabutton.dart';
+import 'package:blackjackk/screens/widgets/roundendtext.dart';
 import 'package:blackjackk/screens/widgets/scoredisplay.dart';
 import 'package:blackjackk/viewmodel/dealer.dart';
 import 'package:blackjackk/viewmodel/numcard.dart';
@@ -26,6 +28,7 @@ class _HomePageState extends State<HomePage> {
   int rngNum = 0;
   int rngDealer = 0;
   String endingText = 'Please start';
+  int counter = 2;
   var card = Cards();
   List<int> usedNum = [];
   bool card1 = false;
@@ -155,7 +158,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   //when either player/dealer health goes 0
-  void endDecision(Player player, BuildContext context, Dealer dealer) {
+  void endDecision(Player player, BuildContext context, Dealer dealer) async {
     if (player.playerHealth <= 0) {
       Navigator.pushReplacementNamed(context, '/gameover',
           arguments: {'decision': 'lose'});
@@ -165,11 +168,19 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  //things to do when
-  void thingsToDo(String text) {
-    shouldDisableButton = true;
-    setState(() => endingText = text);
-    hasWon = true;
+  //things to do when SCORE CALCULATION
+  Future thingsToDo(String text, Player player, Dealer dealer) async {
+    setState(() {
+      shouldDisableButton = true;
+      endingText = text;
+      hasWon = true;
+    });
+    //auto restart after x seconds 
+    await Future.delayed(Duration(seconds: counter));
+    setState(() => hasWon = false);
+    restartGame();
+    player.restartStats();
+    dealer.restartDealerStats();
   }
 
   //update player cards - hit button
@@ -214,30 +225,396 @@ class _HomePageState extends State<HomePage> {
       child: SafeArea(
         child: Scaffold(
           body: Center(
-            child: Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  //dealer's health bar
-                  const HealthBarD(),
-                  const SizedBox(height: 10.0),
-                  //dealer's cards and dealerNum
-                  CardDeckD(
-                      card6: card6,
-                      card7: card7,
-                      card8: card8,
-                      card9: card9,
-                      card10: card10,
-                      hasWon: hasWon),
-                  const SizedBox(height: 10.0),
-                  //hit and restart button
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      //hit button
-                      Consumer3<NumCard, Player, Dealer>(
+            child: Stack(
+              children: [
+                //main widgets
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    //dealer's health bar
+                    const HealthBarD(),
+                    const SizedBox(height: 5.0),
+                    //dealer portrait
+                    Container(
+                      width: 250,
+                      height: MediaQuery.of(context).size.height * 0.25,
+                      decoration: BoxDecoration(
+                        border: Border.all(),
+                      ),
+                      child: Image.asset(
+                        'assets/dealer_sprite.webp',
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    const SizedBox(height: 5.0),
+                    //dealer's cards and dealerNum
+                    CardDeckD(
+                        card6: card6,
+                        card7: card7,
+                        card8: card8,
+                        card9: card9,
+                        card10: card10,
+                        hasWon: hasWon),
+                    //start hold hit button
+                    Consumer3<NumCard, Player, Dealer>(
                         builder: (context, numCard, player, dealer, child) {
-                          return ElevatedButton(
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          //start button
+                          ElevatedButton(
+                            child: const Text('Start'),
+                            onPressed: firstButtonClick
+                                ? null
+                                : () {
+                                    setState(() => endingText = 'Competing..');
+                                    //as long as the card is not 4 and the val is less than 21, it rerolls
+                                    while (player.playerCard.length != 2) {
+                                      setState(() =>
+                                          rngNum = Random().nextInt(rngMax));
+
+                                      while (usedNum.contains(rngNum)) {
+                                        setState(() =>
+                                            rngNum = Random().nextInt(rngMax));
+                                      }
+
+                                      if (usedNum.contains(rngNum) == false) {
+                                        //makes sure everyone is getting dealed before ending with dealer
+                                        switch (dealer.dealerCard.length) {
+                                          case 0:
+                                            //player's first turn for cards
+                                            card.takeCards(rngNum);
+                                            //ensures card val 'A' is 11
+                                            if (rngNum == 0 ||
+                                                rngNum == 1 ||
+                                                rngNum == 2 ||
+                                                rngNum == 3) {
+                                              card.cardVal = 1;
+                                              player.updatePlayerNum(
+                                                  card.cardVal);
+                                            } else {
+                                              player.updatePlayerNum(
+                                                  card.cardVal);
+                                            }
+                                            player
+                                                .updatePlayerCard(card.cardNum);
+                                            usedNum.add(rngNum);
+
+                                            //updates first card of player
+                                            numCard.doSomething(card.flowerVal,
+                                                card.cardNum, card.cardColor);
+
+                                            //rerolls for dealer's card
+                                            setState(() => rngNum =
+                                                Random().nextInt(rngMax));
+
+                                            //check if its duplicate
+                                            while (usedNum.contains(rngNum)) {
+                                              setState(() => rngNum =
+                                                  Random().nextInt(rngMax));
+                                            }
+
+                                            if (usedNum.contains(rngNum) ==
+                                                false) {
+                                              //dealer's first card
+                                              card.takeCards(rngNum);
+                                              //ensures card val 'A' is 11
+                                              if (rngNum == 0 ||
+                                                  rngNum == 1 ||
+                                                  rngNum == 2 ||
+                                                  rngNum == 3) {
+                                                card.cardVal = 11;
+                                                dealer.updateDealerNum(
+                                                    card.cardVal);
+                                              } else {
+                                                dealer.updateDealerNum(
+                                                    card.cardVal);
+                                              }
+                                              dealer.updateDealerCard(
+                                                  card.cardNum);
+                                              usedNum.add(rngNum);
+                                            }
+
+                                            //updates first card of dealer
+                                            numCard.doSomething6(card.flowerVal,
+                                                card.cardNum, card.cardColor);
+
+                                            break;
+                                          case 1:
+                                            //player's second turn for cards
+                                            card.takeCards(rngNum);
+
+                                            //ensures card val 'A' is 11
+                                            if (rngNum == 0 ||
+                                                rngNum == 1 ||
+                                                rngNum == 2 ||
+                                                rngNum == 3) {
+                                              card.cardVal = 1;
+                                              player.updatePlayerNum(
+                                                  card.cardVal);
+                                            } else {
+                                              player.updatePlayerNum(
+                                                  card.cardVal);
+                                            }
+                                            player
+                                                .updatePlayerCard(card.cardNum);
+                                            usedNum.add(rngNum);
+
+                                            //updates 2nd card for player
+                                            numCard.doSomething2(card.flowerVal,
+                                                card.cardNum, card.cardColor);
+
+                                            //2nd turn for dealer
+                                            setState(() => rngNum =
+                                                Random().nextInt(rngMax));
+
+                                            //check if its duplicate
+                                            while (usedNum.contains(rngNum)) {
+                                              setState(() => rngNum =
+                                                  Random().nextInt(rngMax));
+                                            }
+
+                                            if (usedNum.contains(rngNum) ==
+                                                false) {
+                                              //dealer's second card
+                                              card.takeCards(rngNum);
+
+                                              //ensures card val 'A' is 11
+                                              if (rngNum == 0 ||
+                                                  rngNum == 1 ||
+                                                  rngNum == 2 ||
+                                                  rngNum == 3) {
+                                                if (dealer.dealerNum <
+                                                    11) // 10, 9, 8..
+                                                {
+                                                  card.cardVal = 11;
+                                                  dealer.updateDealerNum(
+                                                      card.cardVal);
+                                                } else if (dealer.dealerNum ==
+                                                    11) {
+                                                  card.cardVal = 10;
+                                                  dealer.updateDealerNum(
+                                                      card.cardVal);
+                                                } else {
+                                                  card.cardVal = 1;
+                                                  dealer.updateDealerNum(
+                                                      card.cardVal);
+                                                }
+                                              } else {
+                                                dealer.updateDealerNum(
+                                                    card.cardVal);
+                                              }
+                                              dealer.updateDealerCard(
+                                                  card.cardNum);
+                                              usedNum.add(rngNum);
+
+                                              //updates second card of dealer
+                                              numCard.doSomething7(
+                                                  card.flowerVal,
+                                                  card.cardNum,
+                                                  card.cardColor);
+
+                                              //checks if both double 'A'
+                                              if (player.playerCard[0] == 'A' &&
+                                                  player.playerCard[1] == 'A' &&
+                                                  dealer.dealerCard[0] == 'A' &&
+                                                  dealer.dealerCard[1] == 'A') {
+                                                thingsToDo(
+                                                    constantsVal.doubleADraw,
+                                                    player,
+                                                    dealer);
+                                                numOfCardsDealer(
+                                                    dealer.dealerCard.length);
+                                              }
+                                              //checks if player double A
+                                              else if (player.playerCard[0] ==
+                                                      'A' &&
+                                                  player.playerCard[1] == 'A') {
+                                                player.updateHealth(
+                                                    constantsVal.highValue);
+                                                dealer.updateDealerHealth(
+                                                    constantsVal.highValueN);
+                                                thingsToDo(
+                                                    constantsVal.doubleAPlayer,
+                                                    player,
+                                                    dealer);
+                                                numOfCardsDealer(
+                                                    dealer.dealerCard.length);
+                                              }
+                                              //checks if dealer double A
+                                              else if (dealer.dealerCard[0] ==
+                                                      'A' &&
+                                                  dealer.dealerCard[1] == 'A') {
+                                                player.updateHealth(
+                                                    constantsVal.highValueN);
+                                                dealer.updateDealerHealth(
+                                                    constantsVal.highValue);
+                                                thingsToDo(
+                                                    constantsVal.doubleADealer,
+                                                    player,
+                                                    dealer);
+                                                numOfCardsDealer(
+                                                    dealer.dealerCard.length);
+                                              }
+                                              //checks if both are blackjack for draw
+                                              else if (player.playerCard
+                                                              .length ==
+                                                          2 &&
+                                                      player.playerNum == 11 &&
+                                                      player.playerCard[0] ==
+                                                          'A' &&
+                                                      dealer.dealerCard.length ==
+                                                          2 &&
+                                                      dealer.dealerNum == 11 &&
+                                                      dealer.dealerCard[0] ==
+                                                          'A' ||
+                                                  player.playerCard.length == 2 &&
+                                                      player.playerNum == 11 &&
+                                                      player.playerCard[0] ==
+                                                          'A' &&
+                                                      dealer.dealerCard
+                                                              .length ==
+                                                          2 &&
+                                                      dealer.dealerNum == 11 &&
+                                                      dealer.dealerCard[1] ==
+                                                          'A' ||
+                                                  player.playerCard.length ==
+                                                          2 &&
+                                                      player.playerNum == 11 &&
+                                                      player
+                                                              .playerCard[1] ==
+                                                          'A' &&
+                                                      dealer.dealerCard
+                                                              .length ==
+                                                          2 &&
+                                                      dealer.dealerNum == 11 &&
+                                                      dealer.dealerCard[0] ==
+                                                          'A' ||
+                                                  player.playerCard.length ==
+                                                          2 &&
+                                                      player.playerNum == 11 &&
+                                                      player
+                                                              .playerCard[1] ==
+                                                          'A' &&
+                                                      dealer.dealerCard
+                                                              .length ==
+                                                          2 &&
+                                                      dealer.dealerNum == 11 &&
+                                                      dealer.dealerCard[1] ==
+                                                          'A') {
+                                                player.updatePlayerNum(
+                                                    constantsVal.smolValue);
+                                                thingsToDo(
+                                                    constantsVal.blackJackDraw,
+                                                    player,
+                                                    dealer);
+                                                numOfCardsDealer(
+                                                    dealer.dealerCard.length);
+                                              }
+                                              //checks if both are double for draw
+                                              else if (player.playerCard[0] ==
+                                                      player.playerCard[1] &&
+                                                  dealer.dealerCard[0] ==
+                                                      dealer.dealerCard[1]) {
+                                                thingsToDo(
+                                                    constantsVal.doubleDraw,
+                                                    player,
+                                                    dealer);
+                                                numOfCardsDealer(
+                                                    dealer.dealerCard.length);
+                                              }
+                                              //checks if player blackjack
+                                              else if (player.playerCard
+                                                              .length ==
+                                                          2 &&
+                                                      player.playerNum == 11 &&
+                                                      player.playerCard[0] ==
+                                                          'A' ||
+                                                  player.playerCard.length ==
+                                                          2 &&
+                                                      player.playerNum == 11 &&
+                                                      player.playerCard[1] ==
+                                                          'A') {
+                                                player.updatePlayerNum(
+                                                    constantsVal.smolValue);
+                                                player.updateHealth(
+                                                    constantsVal.medValue);
+                                                dealer.updateDealerHealth(
+                                                    constantsVal.medValueN);
+                                                thingsToDo(
+                                                    constantsVal
+                                                        .blackJackPlayer,
+                                                    player,
+                                                    dealer);
+                                                numOfCardsDealer(
+                                                    dealer.dealerCard.length);
+                                              }
+                                              //checks if dealer blackjack
+                                              else if (dealer
+                                                          .dealerCard.length ==
+                                                      2 &&
+                                                  dealer.dealerNum == 21) {
+                                                player.updateHealth(
+                                                    constantsVal.medValueN);
+                                                dealer.updateDealerHealth(
+                                                    constantsVal.medValue);
+                                                thingsToDo(
+                                                    constantsVal
+                                                        .blackJackDealer,
+                                                    player,
+                                                    dealer);
+                                                numOfCardsDealer(
+                                                    dealer.dealerCard.length);
+                                              } //checks if player double
+                                              else if (player
+                                                          .playerCard.length ==
+                                                      2 &&
+                                                  player.playerCard[0] ==
+                                                      player.playerCard[1]) {
+                                                player.updateHealth(
+                                                    constantsVal.medValue);
+                                                dealer.updateDealerHealth(
+                                                    constantsVal.medValueN);
+                                                thingsToDo(
+                                                    constantsVal.doublePlayer,
+                                                    player,
+                                                    dealer);
+                                                numOfCardsDealer(
+                                                    dealer.dealerCard.length);
+                                              }
+                                              //checks if dealer double
+                                              else if (dealer
+                                                          .dealerCard.length ==
+                                                      2 &&
+                                                  dealer.dealerCard[0] ==
+                                                      dealer.dealerCard[1]) {
+                                                player.updateHealth(
+                                                    constantsVal.medValueN);
+                                                dealer.updateDealerHealth(
+                                                    constantsVal.medValue);
+                                                thingsToDo(
+                                                    constantsVal.doubleDealer,
+                                                    player,
+                                                    dealer);
+                                                numOfCardsDealer(
+                                                    dealer.dealerCard.length);
+                                              }
+                                            }
+                                            break;
+                                        }
+                                      }
+                                      //show the num of cards as per the current card length
+                                      numOfCards(player.playerCard.length);
+
+                                      //checks if player or dealer has no more health left
+                                      endDecision(player, context, dealer);
+                                    }
+                                    firstButtonClick = true;
+                                  },
+                          ),
+                          const SizedBox(width: 15.0),
+                          //hit button
+                          ElevatedButton(
                               child: const Text('Hit'),
                               onPressed: firstButtonClick
                                   ? shouldDisableButton
@@ -286,8 +663,11 @@ class _HomePageState extends State<HomePage> {
                                                     constantsVal.highValueN);
                                                 dealer.updateDealerHealth(
                                                     constantsVal.highValue);
-                                                thingsToDo(constantsVal
-                                                    .playerFiveBurst);
+                                                thingsToDo(
+                                                    constantsVal
+                                                        .playerFiveBurst,
+                                                    player,
+                                                    dealer);
                                               }
                                               //checks if player won by blackjack and 5 cards
                                               else if (player
@@ -298,8 +678,11 @@ class _HomePageState extends State<HomePage> {
                                                     constantsVal.highestVal);
                                                 dealer.updateDealerHealth(
                                                     constantsVal.highestValN);
-                                                thingsToDo(constantsVal
-                                                    .fiveBlackJackPlayer);
+                                                thingsToDo(
+                                                    constantsVal
+                                                        .fiveBlackJackPlayer,
+                                                    player,
+                                                    dealer);
                                               }
                                               //checks if player won by 5 cards
                                               else if (player
@@ -312,7 +695,9 @@ class _HomePageState extends State<HomePage> {
                                                 dealer.updateDealerHealth(
                                                     constantsVal.highValueN);
                                                 thingsToDo(
-                                                    constantsVal.fivePlayer);
+                                                    constantsVal.fivePlayer,
+                                                    player,
+                                                    dealer);
                                               }
                                               //checks if player burst
                                               else if (player.playerNum >
@@ -341,792 +726,484 @@ class _HomePageState extends State<HomePage> {
                                             shouldDisableButton = true;
                                           }
                                         }
-                                  : null);
-                        },
-                      ),
-                      const SizedBox(width: 15.0),
-                      //restart
-                      Consumer2<Player, Dealer>(
-                          builder: (context, player, dealer, child) {
-                        return ElevatedButton(
-                          child: const Text('Restart'),
-                          onPressed: () {
-                            restartGame();
-                            player.restartStats();
-                            dealer.restartDealerStats();
-                          },
-                        );
-                      }),
-                    ],
-                  ),
-                  const SizedBox(height: 10.0),
-                  const Text('Player Current Health'),
-                  Consumer<Player>(builder: (context, player, child) {
-                    return Text(player.playerHealth.toString());
-                  }),
-                  const SizedBox(height: 10.0),
-                  Text(endingText),
-                  const SizedBox(height: 10.0),
-                  //start and hold button
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      //start button
-                      Consumer3<NumCard, Player, Dealer>(
-                          builder: (context, numCard, player, dealer, child) {
-                        return ElevatedButton(
-                          child: const Text('Start'),
-                          onPressed: firstButtonClick
-                              ? null
-                              : () {
-                                  setState(() => endingText = 'Competing..');
-                                  //as long as the card is not 4 and the val is less than 21, it rerolls
-                                  while (player.playerCard.length != 2) {
-                                    setState(() =>
-                                        rngNum = Random().nextInt(rngMax));
+                                  : null),
+                          const SizedBox(width: 15.0),
+                          //player hold
+                          ElevatedButton(
+                              onPressed: firstButtonClick
+                                  ? hasWon
+                                      ? null
+                                      : () {
+                                          setState(
+                                              () => shouldDisableButton = true);
 
-                                    while (usedNum.contains(rngNum)) {
-                                      setState(() =>
-                                          rngNum = Random().nextInt(rngMax));
-                                    }
-
-                                    if (usedNum.contains(rngNum) == false) {
-                                      //makes sure everyone is getting dealed before ending with dealer
-                                      switch (dealer.dealerCard.length) {
-                                        case 0:
-                                          //player's first turn for cards
-                                          card.takeCards(rngNum);
-                                          //ensures card val 'A' is 11
-                                          if (rngNum == 0 ||
-                                              rngNum == 1 ||
-                                              rngNum == 2 ||
-                                              rngNum == 3) {
-                                            card.cardVal = 1;
-                                            player
-                                                .updatePlayerNum(card.cardVal);
-                                          } else {
-                                            player
-                                                .updatePlayerNum(card.cardVal);
-                                          }
-                                          player.updatePlayerCard(card.cardNum);
-                                          usedNum.add(rngNum);
-
-                                          //updates first card of player
-                                          numCard.doSomething(card.flowerVal,
-                                              card.cardNum, card.cardColor);
-
-                                          //rerolls for dealer's card
-                                          setState(() => rngNum =
-                                              Random().nextInt(rngMax));
-
-                                          //check if its duplicate
-                                          while (usedNum.contains(rngNum)) {
+                                          //dealer's actions
+                                          //smaller value stuff
+                                          while (dealer.dealerNum <
+                                                  card.minVal &&
+                                              dealer.dealerCard.length <= 4) {
                                             setState(() => rngNum =
                                                 Random().nextInt(rngMax));
-                                          }
 
-                                          if (usedNum.contains(rngNum) ==
-                                              false) {
-                                            //dealer's first card
-                                            card.takeCards(rngNum);
-                                            //ensures card val 'A' is 11
-                                            if (rngNum == 0 ||
-                                                rngNum == 1 ||
-                                                rngNum == 2 ||
-                                                rngNum == 3) {
-                                              card.cardVal = 11;
-                                              dealer.updateDealerNum(
-                                                  card.cardVal);
-                                            } else {
-                                              dealer.updateDealerNum(
-                                                  card.cardVal);
-                                            }
-                                            dealer
-                                                .updateDealerCard(card.cardNum);
-                                            usedNum.add(rngNum);
-                                          }
-
-                                          //updates first card of dealer
-                                          numCard.doSomething6(card.flowerVal,
-                                              card.cardNum, card.cardColor);
-
-                                          break;
-                                        case 1:
-                                          //player's second turn for cards
-                                          card.takeCards(rngNum);
-
-                                          //ensures card val 'A' is 11
-                                          if (rngNum == 0 ||
-                                              rngNum == 1 ||
-                                              rngNum == 2 ||
-                                              rngNum == 3) {
-                                            card.cardVal = 1;
-                                            player
-                                                .updatePlayerNum(card.cardVal);
-                                          } else {
-                                            player
-                                                .updatePlayerNum(card.cardVal);
-                                          }
-                                          player.updatePlayerCard(card.cardNum);
-                                          usedNum.add(rngNum);
-
-                                          //updates 2nd card for player
-                                          numCard.doSomething2(card.flowerVal,
-                                              card.cardNum, card.cardColor);
-
-                                          //2nd turn for dealer
-                                          setState(() => rngNum =
-                                              Random().nextInt(rngMax));
-
-                                          //check if its duplicate
-                                          while (usedNum.contains(rngNum)) {
-                                            setState(() => rngNum =
-                                                Random().nextInt(rngMax));
-                                          }
-
-                                          if (usedNum.contains(rngNum) ==
-                                              false) {
-                                            //dealer's second card
-                                            card.takeCards(rngNum);
-
-                                            //ensures card val 'A' is 11
-                                            if (rngNum == 0 ||
-                                                rngNum == 1 ||
-                                                rngNum == 2 ||
-                                                rngNum == 3) {
-                                              if (dealer.dealerNum <
-                                                  11) // 10, 9, 8..
-                                              {
-                                                card.cardVal = 11;
-                                                dealer.updateDealerNum(
-                                                    card.cardVal);
-                                              } else if (dealer.dealerNum ==
-                                                  11) {
-                                                card.cardVal = 10;
-                                                dealer.updateDealerNum(
-                                                    card.cardVal);
-                                              } else {
-                                                card.cardVal = 1;
-                                                dealer.updateDealerNum(
-                                                    card.cardVal);
-                                              }
-                                            } else {
-                                              dealer.updateDealerNum(
-                                                  card.cardVal);
-                                            }
-                                            dealer
-                                                .updateDealerCard(card.cardNum);
-                                            usedNum.add(rngNum);
-
-                                            //updates second card of dealer
-                                            numCard.doSomething7(card.flowerVal,
-                                                card.cardNum, card.cardColor);
-
-                                            //checks if both double 'A'
-                                            if (player.playerCard[0] == 'A' &&
-                                                player.playerCard[1] == 'A' &&
-                                                dealer.dealerCard[0] == 'A' &&
-                                                dealer.dealerCard[1] == 'A') {
-                                              thingsToDo(
-                                                  constantsVal.doubleADraw);
-                                              numOfCardsDealer(
-                                                  dealer.dealerCard.length);
-                                            }
-                                            //checks if player double A
-                                            else if (player.playerCard[0] ==
-                                                    'A' &&
-                                                player.playerCard[1] == 'A') {
-                                              player.updateHealth(
-                                                  constantsVal.highValue);
-                                              dealer.updateDealerHealth(
-                                                  constantsVal.highValueN);
-                                              thingsToDo(
-                                                  constantsVal.doubleAPlayer);
-                                              numOfCardsDealer(
-                                                  dealer.dealerCard.length);
-                                            }
-                                            //checks if dealer double A
-                                            else if (dealer.dealerCard[0] ==
-                                                    'A' &&
-                                                dealer.dealerCard[1] == 'A') {
-                                              player.updateHealth(
-                                                  constantsVal.highValueN);
-                                              dealer.updateDealerHealth(
-                                                  constantsVal.highValue);
-                                              thingsToDo(
-                                                  constantsVal.doubleADealer);
-                                              numOfCardsDealer(
-                                                  dealer.dealerCard.length);
-                                            }
-                                            //checks if both are blackjack for draw
-                                            else if (player.playerCard.length ==
-                                                        2 &&
-                                                    player.playerNum == 11 &&
-                                                    player.playerCard[0] ==
-                                                        'A' &&
-                                                    dealer.dealerCard.length ==
-                                                        2 &&
-                                                    dealer.dealerNum == 11 &&
-                                                    dealer.dealerCard[0] ==
-                                                        'A' ||
-                                                player.playerCard.length == 2 &&
-                                                    player.playerNum == 11 &&
-                                                    player.playerCard[0] ==
-                                                        'A' &&
-                                                    dealer.dealerCard.length ==
-                                                        2 &&
-                                                    dealer.dealerNum == 11 &&
-                                                    dealer.dealerCard[1] ==
-                                                        'A' ||
-                                                player.playerCard.length == 2 &&
-                                                    player.playerNum == 11 &&
-                                                    player.playerCard[1] ==
-                                                        'A' &&
-                                                    dealer.dealerCard.length ==
-                                                        2 &&
-                                                    dealer.dealerNum == 11 &&
-                                                    dealer.dealerCard[0] ==
-                                                        'A' ||
-                                                player.playerCard.length == 2 &&
-                                                    player.playerNum == 11 &&
-                                                    player.playerCard[1] ==
-                                                        'A' &&
-                                                    dealer.dealerCard.length ==
-                                                        2 &&
-                                                    dealer.dealerNum == 11 &&
-                                                    dealer.dealerCard[1] ==
-                                                        'A') {
-                                              player.updatePlayerNum(
-                                                  constantsVal.smolValue);
-                                              thingsToDo(
-                                                  constantsVal.blackJackDraw);
-                                              numOfCardsDealer(
-                                                  dealer.dealerCard.length);
-                                            }
-                                            //checks if both are double for draw
-                                            else if (player.playerCard[0] ==
-                                                    player.playerCard[1] &&
-                                                dealer.dealerCard[0] ==
-                                                    dealer.dealerCard[1]) {
-                                              thingsToDo(
-                                                  constantsVal.doubleDraw);
-                                              numOfCardsDealer(
-                                                  dealer.dealerCard.length);
-                                            }
-                                            //checks if player blackjack
-                                            else if (player.playerCard.length ==
-                                                        2 &&
-                                                    player.playerNum == 11 &&
-                                                    player.playerCard[0] ==
-                                                        'A' ||
-                                                player.playerCard.length == 2 &&
-                                                    player.playerNum == 11 &&
-                                                    player.playerCard[1] ==
-                                                        'A') {
-                                              player.updatePlayerNum(
-                                                  constantsVal.smolValue);
-                                              player.updateHealth(
-                                                  constantsVal.medValue);
-                                              dealer.updateDealerHealth(
-                                                  constantsVal.medValueN);
-                                              thingsToDo(
-                                                  constantsVal.blackJackPlayer);
-                                              numOfCardsDealer(
-                                                  dealer.dealerCard.length);
-                                            }
-                                            //checks if dealer blackjack
-                                            else if (dealer.dealerCard.length ==
-                                                    2 &&
-                                                dealer.dealerNum == 21) {
-                                              player.updateHealth(
-                                                  constantsVal.medValueN);
-                                              dealer.updateDealerHealth(
-                                                  constantsVal.medValue);
-                                              thingsToDo(
-                                                  constantsVal.blackJackDealer);
-                                              numOfCardsDealer(
-                                                  dealer.dealerCard.length);
-                                            } //checks if player double
-                                            else if (player.playerCard.length ==
-                                                    2 &&
-                                                player.playerCard[0] ==
-                                                    player.playerCard[1]) {
-                                              player.updateHealth(
-                                                  constantsVal.medValue);
-                                              dealer.updateDealerHealth(
-                                                  constantsVal.medValueN);
-                                              thingsToDo(
-                                                  constantsVal.doublePlayer);
-                                              numOfCardsDealer(
-                                                  dealer.dealerCard.length);
-                                            }
-                                            //checks if dealer double
-                                            else if (dealer.dealerCard.length ==
-                                                    2 &&
-                                                dealer.dealerCard[0] ==
-                                                    dealer.dealerCard[1]) {
-                                              player.updateHealth(
-                                                  constantsVal.medValueN);
-                                              dealer.updateDealerHealth(
-                                                  constantsVal.medValue);
-                                              thingsToDo(
-                                                  constantsVal.doubleDealer);
-                                              numOfCardsDealer(
-                                                  dealer.dealerCard.length);
-                                            }
-                                          }
-                                          break;
-                                      }
-                                    }
-                                    //show the num of cards as per the current card length
-                                    numOfCards(player.playerCard.length);
-
-                                    //checks if player or dealer has no more health left
-                                    endDecision(player, context, dealer);
-                                  }
-                                  firstButtonClick = true;
-                                },
-                        );
-                      }),
-                      const SizedBox(width: 15.0),
-                      //player hold
-                      Consumer3<NumCard, Player, Dealer>(
-                          builder: (context, numCard, player, dealer, child) {
-                        return ElevatedButton(
-                            onPressed: firstButtonClick
-                                ? hasWon
-                                    ? null
-                                    : () {
-                                        setState(
-                                            () => shouldDisableButton = true);
-
-                                        //dealer's actions
-                                        //smaller value stuff
-                                        while (dealer.dealerNum < card.minVal &&
-                                            dealer.dealerCard.length <= 4) {
-                                          setState(() => rngNum =
-                                              Random().nextInt(rngMax));
-
-                                          //if the card is already taken it rerolls
-                                          while (usedNum.contains(rngNum)) {
-                                            setState(() => rngNum =
-                                                Random().nextInt(rngMax));
-                                          }
-
-                                          //if the card is not a duplicate, it keeps the card
-                                          if (usedNum.contains(rngNum) ==
-                                              false) {
-                                            //dealer takes card
-                                            card.takeCards(rngNum);
-                                            //ensures card val 'A' is 11
-                                            if (rngNum == 0 ||
-                                                rngNum == 1 ||
-                                                rngNum == 2 ||
-                                                rngNum == 3) {
-                                              if (dealer.dealerNum < 12) {
-                                                card.cardVal = 10;
-                                                dealer.updateDealerNum(
-                                                    card.cardVal);
-                                                dealer.updateDealerCard(
-                                                    card.cardNum);
-                                                usedNum.add(rngNum);
-                                              } else {
-                                                card.cardVal = 1;
-                                                dealer.updateDealerNum(
-                                                    card.cardVal);
-                                                dealer.updateDealerCard(
-                                                    card.cardNum);
-                                                usedNum.add(rngNum);
-                                              }
-                                            } else {
-                                              dealer.updateDealerNum(
-                                                  card.cardVal);
-                                              dealer.updateDealerCard(
-                                                  card.cardNum);
-                                              usedNum.add(rngNum);
-                                            }
-
-                                            //updates dealer cards as per the card length
-                                            updateDealerCards(dealer, numCard);
-                                          }
-                                        }
-                                        //higher value stuff
-                                        if (dealer.dealerNum >= card.minVal &&
-                                            dealer.dealerNum < card.dealerVal &&
-                                            dealer.dealerCard.length <= 4) {
-                                          setState(() =>
-                                              rngDealer = Random().nextInt(2));
-                                          switch (rngDealer) {
-                                            case 0:
+                                            //if the card is already taken it rerolls
+                                            while (usedNum.contains(rngNum)) {
                                               setState(() => rngNum =
                                                   Random().nextInt(rngMax));
+                                            }
 
-                                              while (usedNum.contains(rngNum)) {
-                                                setState(() => rngNum =
-                                                    Random().nextInt(rngMax));
-                                              }
-
-                                              if (usedNum.contains(rngNum) ==
-                                                  false) {
-                                                //dealer takes card
-                                                card.takeCards(rngNum);
-                                                //modifying card A value
-                                                if (rngNum == 0 ||
-                                                    rngNum == 1 ||
-                                                    rngNum == 2 ||
-                                                    rngNum == 3) {
-                                                  if (dealer.dealerNum < 12) {
-                                                    card.cardVal = 10;
-                                                    dealer.updateDealerNum(
-                                                        card.cardVal);
-                                                    dealer.updateDealerCard(
-                                                        card.cardNum);
-                                                  } else {
-                                                    card.cardVal = 1;
-                                                    dealer.updateDealerNum(
-                                                        card.cardVal);
-                                                    dealer.updateDealerCard(
-                                                        card.cardNum);
-                                                  }
+                                            //if the card is not a duplicate, it keeps the card
+                                            if (usedNum.contains(rngNum) ==
+                                                false) {
+                                              //dealer takes card
+                                              card.takeCards(rngNum);
+                                              //ensures card val 'A' is 11
+                                              if (rngNum == 0 ||
+                                                  rngNum == 1 ||
+                                                  rngNum == 2 ||
+                                                  rngNum == 3) {
+                                                if (dealer.dealerNum < 12) {
+                                                  card.cardVal = 10;
+                                                  dealer.updateDealerNum(
+                                                      card.cardVal);
+                                                  dealer.updateDealerCard(
+                                                      card.cardNum);
+                                                  usedNum.add(rngNum);
                                                 } else {
+                                                  card.cardVal = 1;
                                                   dealer.updateDealerNum(
                                                       card.cardVal);
                                                   dealer.updateDealerCard(
                                                       card.cardNum);
                                                   usedNum.add(rngNum);
                                                 }
-
-                                                //updates dealer cards as per the card length
-                                                updateDealerCards(
-                                                    dealer, numCard);
+                                              } else {
+                                                dealer.updateDealerNum(
+                                                    card.cardVal);
+                                                dealer.updateDealerCard(
+                                                    card.cardNum);
+                                                usedNum.add(rngNum);
                                               }
-                                              break;
-                                            case 1:
-                                              null;
-                                              break;
-                                          }
-                                        }
 
-                                        //if player has less than 16 and holds
-                                        if (player.playerNum < card.minVal) {
-                                          player.updateHealth(
-                                              constantsVal.medValueN);
-                                          dealer.updateDealerHealth(
-                                              constantsVal.medValue);
-                                          thingsToDo(constantsVal.lessThanHold);
-                                          numOfCardsDealer(
-                                              dealer.dealerCard.length);
+                                              //updates dealer cards as per the card length
+                                              updateDealerCards(
+                                                  dealer, numCard);
+                                            }
+                                          }
+                                          //higher value stuff
+                                          if (dealer.dealerNum >= card.minVal &&
+                                              dealer.dealerNum <
+                                                  card.dealerVal &&
+                                              dealer.dealerCard.length <= 4) {
+                                            setState(() => rngDealer =
+                                                Random().nextInt(2));
+                                            switch (rngDealer) {
+                                              case 0:
+                                                setState(() => rngNum =
+                                                    Random().nextInt(rngMax));
+
+                                                while (
+                                                    usedNum.contains(rngNum)) {
+                                                  setState(() => rngNum =
+                                                      Random().nextInt(rngMax));
+                                                }
+
+                                                if (usedNum.contains(rngNum) ==
+                                                    false) {
+                                                  //dealer takes card
+                                                  card.takeCards(rngNum);
+                                                  //modifying card A value
+                                                  if (rngNum == 0 ||
+                                                      rngNum == 1 ||
+                                                      rngNum == 2 ||
+                                                      rngNum == 3) {
+                                                    if (dealer.dealerNum < 12) {
+                                                      card.cardVal = 10;
+                                                      dealer.updateDealerNum(
+                                                          card.cardVal);
+                                                      dealer.updateDealerCard(
+                                                          card.cardNum);
+                                                    } else {
+                                                      card.cardVal = 1;
+                                                      dealer.updateDealerNum(
+                                                          card.cardVal);
+                                                      dealer.updateDealerCard(
+                                                          card.cardNum);
+                                                    }
+                                                  } else {
+                                                    dealer.updateDealerNum(
+                                                        card.cardVal);
+                                                    dealer.updateDealerCard(
+                                                        card.cardNum);
+                                                    usedNum.add(rngNum);
+                                                  }
+
+                                                  //updates dealer cards as per the card length
+                                                  updateDealerCards(
+                                                      dealer, numCard);
+                                                }
+                                                break;
+                                              case 1:
+                                                null;
+                                                break;
+                                            }
+                                          }
+
+                                          //if player has less than 16 and holds
+                                          if (player.playerNum < card.minVal) {
+                                            player.updateHealth(
+                                                constantsVal.medValueN);
+                                            dealer.updateDealerHealth(
+                                                constantsVal.medValue);
+                                            thingsToDo(
+                                                constantsVal.lessThanHold,
+                                                player,
+                                                dealer);
+                                            numOfCardsDealer(
+                                                dealer.dealerCard.length);
+                                          }
+                                          //check if dealer 5 cards burst
+                                          else if (dealer.dealerCard.length ==
+                                                  5 &&
+                                              dealer.dealerNum > card.maxVal) {
+                                            player.updateHealth(
+                                                constantsVal.highValue);
+                                            dealer.updateDealerHealth(
+                                                constantsVal.highValueN);
+                                            thingsToDo(
+                                                constantsVal.dealerFiveBurst,
+                                                player,
+                                                dealer);
+                                            numOfCardsDealer(
+                                                dealer.dealerCard.length);
+                                          }
+                                          //checks if both burst
+                                          else if (player.playerNum >
+                                                  card.maxVal &&
+                                              dealer.dealerNum > card.maxVal) {
+                                            thingsToDo(constantsVal.burstDraw,
+                                                player, dealer);
+                                            numOfCardsDealer(
+                                                dealer.dealerCard.length);
+                                          }
+                                          //checks if dealer won by blackjack and 5 cards
+                                          else if (dealer.dealerCard.length ==
+                                                  5 &&
+                                              dealer.dealerNum == 21) {
+                                            player.updateHealth(
+                                                constantsVal.highestValN);
+                                            dealer.updateDealerHealth(
+                                                constantsVal.highestVal);
+                                            thingsToDo(
+                                                constantsVal
+                                                    .fiveBlackJackDealer,
+                                                player,
+                                                dealer);
+                                            numOfCardsDealer(
+                                                dealer.dealerCard.length);
+                                          }
+                                          //checks if dealer won by 5 cards
+                                          else if (dealer.dealerCard.length ==
+                                                  5 &&
+                                              dealer.dealerNum > card.minVal &&
+                                              dealer.dealerNum < card.maxVal) {
+                                            player.updateHealth(
+                                                constantsVal.highValueN);
+                                            dealer.updateDealerHealth(
+                                                constantsVal.highValueN);
+                                            thingsToDo(constantsVal.fiveDealer,
+                                                player, dealer);
+                                            numOfCardsDealer(
+                                                dealer.dealerCard.length);
+                                          }
+                                          //checks if both are same number for draw
+                                          else if (player.playerNum ==
+                                              dealer.dealerNum) {
+                                            thingsToDo(constantsVal.bothDraw,
+                                                player, dealer);
+                                            numOfCardsDealer(
+                                                dealer.dealerCard.length);
+                                          }
+                                          //checks if player won by blackjack
+                                          else if (player.playerNum == 21) {
+                                            player.updateHealth(
+                                                constantsVal.medValue);
+                                            dealer.updateDealerHealth(
+                                                constantsVal.medValueN);
+                                            thingsToDo(
+                                                constantsVal.blackJackPlayer,
+                                                player,
+                                                dealer);
+                                            numOfCardsDealer(
+                                                dealer.dealerCard.length);
+                                          }
+                                          //checks if dealer blackjack
+                                          else if (dealer.dealerNum == 21) {
+                                            player.updateHealth(
+                                                constantsVal.medValueN);
+                                            dealer.updateDealerHealth(
+                                                constantsVal.medValue);
+                                            thingsToDo(
+                                                constantsVal.blackJackDealer,
+                                                player,
+                                                dealer);
+                                            numOfCardsDealer(
+                                                dealer.dealerCard.length);
+                                          }
+                                          //player having higher score than dealer after everything
+                                          else if (player.playerNum >
+                                                  dealer.dealerNum &&
+                                              player.playerNum < card.maxVal) {
+                                            player.updateHealth(
+                                                constantsVal.smolValue);
+                                            dealer.updateDealerHealth(
+                                                constantsVal.smolValueN);
+                                            thingsToDo(
+                                                constantsVal.playerHigher,
+                                                player,
+                                                dealer);
+                                            numOfCardsDealer(
+                                                dealer.dealerCard.length);
+                                          } //dealer having higher score after everything
+                                          else if (player.playerNum <
+                                                  dealer.dealerNum &&
+                                              dealer.dealerNum < card.maxVal) {
+                                            player.updateHealth(
+                                                constantsVal.smolValueN);
+                                            dealer.updateDealerHealth(
+                                                constantsVal.smolValue);
+                                            thingsToDo(
+                                                constantsVal.dealerHigher,
+                                                player,
+                                                dealer);
+                                            numOfCardsDealer(
+                                                dealer.dealerCard.length);
+                                          } //dealer burst
+                                          else if (dealer.dealerNum >
+                                              card.maxVal) {
+                                            player.updateHealth(
+                                                constantsVal.smolValue);
+                                            dealer.updateDealerHealth(
+                                                constantsVal.smolValueN);
+                                            thingsToDo(constantsVal.dealerBurst,
+                                                player, dealer);
+                                            numOfCardsDealer(
+                                                dealer.dealerCard.length);
+                                          } //player burst
+                                          else if (player.playerNum >
+                                              card.maxVal) {
+                                            player.updateHealth(
+                                                constantsVal.smolValueN);
+                                            dealer.updateDealerHealth(
+                                                constantsVal.smolValue);
+                                            thingsToDo(constantsVal.playerBurst,
+                                                player, dealer);
+                                            numOfCardsDealer(
+                                                dealer.dealerCard.length);
+                                          }
+                                          //checks if player or dealer has no more health left
+                                          endDecision(player, context, dealer);
                                         }
-                                        //check if dealer 5 cards burst
-                                        else if (dealer.dealerCard.length ==
-                                                5 &&
-                                            dealer.dealerNum > card.maxVal) {
-                                          player.updateHealth(
-                                              constantsVal.highValue);
-                                          dealer.updateDealerHealth(
-                                              constantsVal.highValueN);
-                                          thingsToDo(
-                                              constantsVal.dealerFiveBurst);
-                                          numOfCardsDealer(
-                                              dealer.dealerCard.length);
-                                        }
-                                        //checks if both burst
-                                        else if (player.playerNum >
-                                                card.maxVal &&
-                                            dealer.dealerNum > card.maxVal) {
-                                          thingsToDo(constantsVal.burstDraw);
-                                          numOfCardsDealer(
-                                              dealer.dealerCard.length);
-                                        }
-                                        //checks if dealer won by blackjack and 5 cards
-                                        else if (dealer.dealerCard.length ==
-                                                5 &&
-                                            dealer.dealerNum == 21) {
-                                          player.updateHealth(
-                                              constantsVal.highestValN);
-                                          dealer.updateDealerHealth(
-                                              constantsVal.highestVal);
-                                          thingsToDo(
-                                              constantsVal.fiveBlackJackDealer);
-                                          numOfCardsDealer(
-                                              dealer.dealerCard.length);
-                                        }
-                                        //checks if dealer won by 5 cards
-                                        else if (dealer.dealerCard.length ==
-                                                5 &&
-                                            dealer.dealerNum > card.minVal &&
-                                            dealer.dealerNum < card.maxVal) {
-                                          player.updateHealth(
-                                              constantsVal.highValueN);
-                                          dealer.updateDealerHealth(
-                                              constantsVal.highValueN);
-                                          thingsToDo(constantsVal.fiveDealer);
-                                          numOfCardsDealer(
-                                              dealer.dealerCard.length);
-                                        }
-                                        //checks if both are same number for draw
-                                        else if (player.playerNum ==
-                                            dealer.dealerNum) {
-                                          thingsToDo(constantsVal.bothDraw);
-                                          numOfCardsDealer(
-                                              dealer.dealerCard.length);
-                                        }
-                                        //checks if player won by blackjack
-                                        else if (player.playerNum == 21) {
-                                          player.updateHealth(
-                                              constantsVal.medValue);
-                                          dealer.updateDealerHealth(
-                                              constantsVal.medValueN);
-                                          thingsToDo(
-                                              constantsVal.blackJackPlayer);
-                                          numOfCardsDealer(
-                                              dealer.dealerCard.length);
-                                        }
-                                        //checks if dealer blackjack
-                                        else if (dealer.dealerNum == 21) {
-                                          player.updateHealth(
-                                              constantsVal.medValueN);
-                                          dealer.updateDealerHealth(
-                                              constantsVal.medValue);
-                                          thingsToDo(
-                                              constantsVal.blackJackDealer);
-                                          numOfCardsDealer(
-                                              dealer.dealerCard.length);
-                                        }
-                                        //player having higher score than dealer after everything
-                                        else if (player.playerNum >
-                                                dealer.dealerNum &&
-                                            player.playerNum < card.maxVal) {
-                                          player.updateHealth(
-                                              constantsVal.smolValue);
-                                          dealer.updateDealerHealth(
-                                              constantsVal.smolValueN);
-                                          thingsToDo(constantsVal.playerHigher);
-                                          numOfCardsDealer(
-                                              dealer.dealerCard.length);
-                                        } //dealer having higher score after everything
-                                        else if (player.playerNum <
-                                                dealer.dealerNum &&
-                                            dealer.dealerNum < card.maxVal) {
-                                          player.updateHealth(
-                                              constantsVal.smolValueN);
-                                          dealer.updateDealerHealth(
-                                              constantsVal.smolValue);
-                                          thingsToDo(constantsVal.dealerHigher);
-                                          numOfCardsDealer(
-                                              dealer.dealerCard.length);
-                                        } //dealer burst
-                                        else if (dealer.dealerNum >
-                                            card.maxVal) {
-                                          player.updateHealth(
-                                              constantsVal.smolValue);
-                                          dealer.updateDealerHealth(
-                                              constantsVal.smolValueN);
-                                          thingsToDo(constantsVal.dealerBurst);
-                                          numOfCardsDealer(
-                                              dealer.dealerCard.length);
-                                        } //player burst
-                                        else if (player.playerNum >
-                                            card.maxVal) {
-                                          player.updateHealth(
-                                              constantsVal.smolValueN);
-                                          dealer.updateDealerHealth(
-                                              constantsVal.smolValue);
-                                          thingsToDo(constantsVal.playerBurst);
-                                          numOfCardsDealer(
-                                              dealer.dealerCard.length);
-                                        }
-                                        //checks if player or dealer has no more health left
-                                        endDecision(player, context, dealer);
-                                      }
-                                : null,
-                            child: const Text('Hold'));
-                      }),
-                    ],
-                  ),
-                  const SizedBox(height: 10.0),
-                  //player's cards and playerNum
-                  Consumer2<NumCard, Player>(
-                      builder: (context, numCard, player, child) {
-                    return Stack(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 5.0),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              card1
-                                  ? Visibility(
-                                      visible: card1,
-                                      child: Column(
-                                        children: [
-                                          CardTemplate(
-                                            flower: numCard.flower,
-                                            num: numCard.num,
-                                            color: numCard.color,
-                                          ),
-                                          Visibility(
-                                            maintainState: true,
-                                            maintainAnimation: true,
-                                            maintainSize: true,
-                                            visible:
-                                                player.playerCard[0] == 'A',
-                                            child: IconButton(
-                                                color: hasBeenPressed
-                                                    ? Colors.black
-                                                    : Colors.green,
-                                                icon: const Icon(Icons.cached),
-                                                onPressed: hasWon
-                                                    ? null
-                                                    : () {
-                                                        changeCardAValue(
-                                                            player, 1);
-                                                      }),
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  : const PlayerChangeAButton(),
-                              card2
-                                  ? Visibility(
-                                      visible: card2,
-                                      child: Column(
-                                        children: [
-                                          CardTemplate(
-                                            flower: numCard.flower2,
-                                            num: numCard.num2,
-                                            color: numCard.color2,
-                                          ),
-                                          Visibility(
-                                            maintainState: true,
-                                            maintainAnimation: true,
-                                            maintainSize: true,
-                                            visible:
-                                                player.playerCard[1] == 'A',
-                                            child: IconButton(
-                                                color: hasBeenPressed2
-                                                    ? Colors.black
-                                                    : Colors.green,
-                                                icon: const Icon(Icons.cached),
-                                                onPressed: hasWon
-                                                    ? null
-                                                    : () {
-                                                        changeCardAValue(
-                                                            player, 2);
-                                                      }),
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  : const PlayerChangeAButton(),
-                              card3
-                                  ? Visibility(
-                                      visible: card3,
-                                      child: Column(
-                                        children: [
-                                          CardTemplate(
-                                            flower: numCard.flower3,
-                                            num: numCard.num3,
-                                            color: numCard.color3,
-                                          ),
-                                          Visibility(
-                                            maintainState: true,
-                                            maintainAnimation: true,
-                                            maintainSize: true,
-                                            visible:
-                                                player.playerCard[2] == 'A',
-                                            child: IconButton(
-                                                color: hasBeenPressed3
-                                                    ? Colors.black
-                                                    : Colors.green,
-                                                icon: const Icon(Icons.cached),
-                                                onPressed: hasWon
-                                                    ? null
-                                                    : () {
-                                                        changeCardAValue(
-                                                            player, 3);
-                                                      }),
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  : const PlayerChangeAButton(),
-                              card4
-                                  ? Visibility(
-                                      visible: card4,
-                                      child: Column(
-                                        children: [
-                                          CardTemplate(
-                                            flower: numCard.flower4,
-                                            num: numCard.num4,
-                                            color: numCard.color4,
-                                          ),
-                                          Visibility(
-                                            maintainState: true,
-                                            maintainAnimation: true,
-                                            maintainSize: true,
-                                            visible:
-                                                player.playerCard[3] == 'A',
-                                            child: IconButton(
-                                                color: hasBeenPressed4
-                                                    ? Colors.black
-                                                    : Colors.green,
-                                                icon: const Icon(Icons.cached),
-                                                onPressed: hasWon
-                                                    ? null
-                                                    : () {
-                                                        changeCardAValue(
-                                                            player, 4);
-                                                      }),
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  : const PlayerChangeAButton(),
-                              card5
-                                  ? Visibility(
-                                      visible: card5,
-                                      child: Column(
-                                        children: [
-                                          CardTemplate(
-                                            flower: numCard.flower5,
-                                            num: numCard.num5,
-                                            color: numCard.color5,
-                                          ),
-                                          Visibility(
-                                            maintainState: true,
-                                            maintainAnimation: true,
-                                            maintainSize: true,
-                                            visible:
-                                                player.playerCard[4] == 'A',
-                                            child: IconButton(
-                                                color: hasBeenPressed5
-                                                    ? Colors.black
-                                                    : Colors.green,
-                                                icon: const Icon(Icons.cached),
-                                                onPressed: hasWon
-                                                    ? null
-                                                    : () {
-                                                        changeCardAValue(
-                                                            player, 5);
-                                                      }),
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  : const PlayerChangeAButton(),
-                            ],
+                                  : null,
+                              child: const Text('Hold')),
+                        ],
+                      );
+                    }),
+                    //player's cards and playerNum
+                    Consumer2<NumCard, Player>(
+                        builder: (context, numCard, player, child) {
+                      return Stack(
+                        children: [
+                          Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 5.0),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                card1
+                                    ? Visibility(
+                                        visible: card1,
+                                        child: Column(
+                                          children: [
+                                            CardTemplate(
+                                              flower: numCard.flower,
+                                              num: numCard.num,
+                                              color: numCard.color,
+                                            ),
+                                            Visibility(
+                                              maintainState: true,
+                                              maintainAnimation: true,
+                                              maintainSize: true,
+                                              visible:
+                                                  player.playerCard[0] == 'A',
+                                              child: IconButton(
+                                                  color: hasBeenPressed
+                                                      ? Colors.black
+                                                      : Colors.green,
+                                                  icon:
+                                                      const Icon(Icons.cached),
+                                                  onPressed: hasWon
+                                                      ? null
+                                                      : () {
+                                                          changeCardAValue(
+                                                              player, 1);
+                                                        }),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    : const PlayerChangeAButton(),
+                                card2
+                                    ? Visibility(
+                                        visible: card2,
+                                        child: Column(
+                                          children: [
+                                            CardTemplate(
+                                              flower: numCard.flower2,
+                                              num: numCard.num2,
+                                              color: numCard.color2,
+                                            ),
+                                            Visibility(
+                                              maintainState: true,
+                                              maintainAnimation: true,
+                                              maintainSize: true,
+                                              visible:
+                                                  player.playerCard[1] == 'A',
+                                              child: IconButton(
+                                                  color: hasBeenPressed2
+                                                      ? Colors.black
+                                                      : Colors.green,
+                                                  icon:
+                                                      const Icon(Icons.cached),
+                                                  onPressed: hasWon
+                                                      ? null
+                                                      : () {
+                                                          changeCardAValue(
+                                                              player, 2);
+                                                        }),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    : const PlayerChangeAButton(),
+                                card3
+                                    ? Visibility(
+                                        visible: card3,
+                                        child: Column(
+                                          children: [
+                                            CardTemplate(
+                                              flower: numCard.flower3,
+                                              num: numCard.num3,
+                                              color: numCard.color3,
+                                            ),
+                                            Visibility(
+                                              maintainState: true,
+                                              maintainAnimation: true,
+                                              maintainSize: true,
+                                              visible:
+                                                  player.playerCard[2] == 'A',
+                                              child: IconButton(
+                                                  color: hasBeenPressed3
+                                                      ? Colors.black
+                                                      : Colors.green,
+                                                  icon:
+                                                      const Icon(Icons.cached),
+                                                  onPressed: hasWon
+                                                      ? null
+                                                      : () {
+                                                          changeCardAValue(
+                                                              player, 3);
+                                                        }),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    : const PlayerChangeAButton(),
+                                card4
+                                    ? Visibility(
+                                        visible: card4,
+                                        child: Column(
+                                          children: [
+                                            CardTemplate(
+                                              flower: numCard.flower4,
+                                              num: numCard.num4,
+                                              color: numCard.color4,
+                                            ),
+                                            Visibility(
+                                              maintainState: true,
+                                              maintainAnimation: true,
+                                              maintainSize: true,
+                                              visible:
+                                                  player.playerCard[3] == 'A',
+                                              child: IconButton(
+                                                  color: hasBeenPressed4
+                                                      ? Colors.black
+                                                      : Colors.green,
+                                                  icon:
+                                                      const Icon(Icons.cached),
+                                                  onPressed: hasWon
+                                                      ? null
+                                                      : () {
+                                                          changeCardAValue(
+                                                              player, 4);
+                                                        }),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    : const PlayerChangeAButton(),
+                                card5
+                                    ? Visibility(
+                                        visible: card5,
+                                        child: Column(
+                                          children: [
+                                            CardTemplate(
+                                              flower: numCard.flower5,
+                                              num: numCard.num5,
+                                              color: numCard.color5,
+                                            ),
+                                            Visibility(
+                                              maintainState: true,
+                                              maintainAnimation: true,
+                                              maintainSize: true,
+                                              visible:
+                                                  player.playerCard[4] == 'A',
+                                              child: IconButton(
+                                                  color: hasBeenPressed5
+                                                      ? Colors.black
+                                                      : Colors.green,
+                                                  icon:
+                                                      const Icon(Icons.cached),
+                                                  onPressed: hasWon
+                                                      ? null
+                                                      : () {
+                                                          changeCardAValue(
+                                                              player, 5);
+                                                        }),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    : const PlayerChangeAButton(),
+                              ],
+                            ),
                           ),
-                        ),
-                        //playerNum text
-                        const ScoreDisplay(),
-                      ],
-                    );
-                  }),
-                  //player's health bar
-                  const HealthBar(),
-                ],
-              ),
+                          //playerNum text
+                          const ScoreDisplay(),
+                        ],
+                      );
+                    }),
+                    //player's health bar
+                    const HealthBar(),
+                  ],
+                ),
+                //endingText box
+                Center(
+                  child: Visibility(
+                    visible: hasWon,
+                    child: RoundEndText(endingText: endingText, counter: counter),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
