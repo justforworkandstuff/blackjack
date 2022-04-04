@@ -11,18 +11,20 @@ class HealthBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final player = Provider.of<Player>(context);
+    final sizeStuff = MediaQuery.of(context).size;
 
     return Stack(
       children: [
         Container(
-          height: MediaQuery.of(context).size.height * 0.10,
-          width: MediaQuery.of(context).size.width,
+          height: sizeStuff.height * 0.10,
+          width: sizeStuff.width,
           color: Colors.red,
         ),
-        Container(
-          height: MediaQuery.of(context).size.height * 0.10,
-          width: MediaQuery.of(context).size.width * player.playerHealth / 100,
+        AnimatedContainer(
+          height: sizeStuff.height * 0.10,
+          width: sizeStuff.width * player.playerHealth / 100,
           color: Colors.green,
+          duration: const Duration(seconds: 1),
         ),
       ],
     );
@@ -37,18 +39,20 @@ class HealthBarD extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dealer = Provider.of<Dealer>(context);
+    final sizeStuff = MediaQuery.of(context).size;
 
     return Stack(
       children: [
         Container(
-          height: MediaQuery.of(context).size.height * 0.10,
-          width: MediaQuery.of(context).size.width,
+          height: sizeStuff.height * 0.10,
+          width: sizeStuff.width,
           color: Colors.red,
         ),
-        Container(
-          height: MediaQuery.of(context).size.height * 0.10,
-          width: MediaQuery.of(context).size.width * dealer.dealerHealth / 100,
-          color: Colors.green,
+        AnimatedContainer(
+          height: sizeStuff.height * 0.10,
+          width: sizeStuff.width * dealer.dealerHealth / 100,
+          color: Colors.green, 
+          duration: const Duration(seconds: 1),
         ),
       ],
     );
